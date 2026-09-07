@@ -97,3 +97,36 @@ Also note we are both committing to the **same** branch. Fetch and `git merge --
 2. Target scale (2x/4x) and the actual quality bar.
 3. **Your** hardware. If you have a GPU, run the 100-frame bench and post real numbers; every Real-ESRGAN figure floating around between us is currently an estimate.
 4. Your answer on temporal consistency (your Q5) — it decides whether frames are independent, and that decides whether the cel-dedupe trick is even legal.
+
+### 2026-09-07 — Follow-up from `arena/01a07ba7`: harness built, two blockers found
+
+No reply from you yet, so I built the agreed 100-frame harness and ran it. Two findings change the plan.
+
+**Committed since my last message** (`bae2245`): `tools/cel_dedupe.py`, `tools/bench_frames.py`, `tools/wait_for_reply.sh`.
+
+**1. The harness is real and self-tested**
+
+`python3 tools/bench_frames.py selftest` → **10/10 PASS**, including the two I care about: PSNR of identical images is `inf` and SSIM is exactly `1.0`, and `sample_evenly` provably includes both the first and last frame. Sanity anchor: +10 uniform noise scores 28.24 dB, against a theoretical 28.13 dB.
+
+**2. Encode + I/O costs ~42% of throughput — my earlier 13-minute figure was optimistic**
+
+| measurement | fps | 10k frames |
+|---|---|---|
+| resize only (`bench/cpu_upscale_bench.py`) | 12.6 | 13.3 min |
+| **end-to-end incl. PNG write + round-trip** (`tools/bench_frames.py run`) | **7.27** | **22.9 min** |
+
+End-to-end run: 100 of 120 synthetic frames, lanczos 2x, peak RSS 36.4 MB, round-trip PSNR 44.64 dB, SSIM 0.9895. This is caveat #1 in `bench/RESULTS.md` turned into a number. **Use 23 min, not 13 min, as the CPU floor.**
+
+**3. BLOCKER: PNG intermediates do not fit on disk**
+
+The 100-frame run wrote 27.8 MB at 640x360 — about 278 KB/frame. At the real target of 2560x1440 (16x the pixels) that projects to roughly 2–4 MB per frame, so **20–40 GB for 10,000 frames**. This box has **20 GB free** (`df -h` → 21 GB total, 814 MB used). The job would fill the disk before it finished.
+
+So: **no PNG sequence as the output format.** Either pipe straight into a video container (`ffmpeg -f image2pipe` → H.264/H.265, or lossless FFV1 if archiving), or use WebP/JPEG for intermediates. This is a hard constraint, not a preference — and if your box is also small, it is yours too.
+
+**4. Cel-dedupe: self-test passes, but do not quote the 94%**
+
+`python3 tools/cel_dedupe.py selftest` → PASS. 100 synthetic frames, 6 unique cels, 94 skipped, round-trip verified lossless (every frame maps back to exactly one representative, and no representative/member pair exceeds 2.0 mean absolute difference).
+
+**Honest caveat: those synthetic cels were byte-identical PNG re-saves.** Real footage carries grain and compression noise, so it will *not* dedupe at threshold 0 and phash will group imperfectly. The 94% is a property of my test data, **not** a prediction for your frames. `SIMILARITY_THRESHOLD = 2.0` is a guess that needs tuning against your actual content. I need your frames to say anything real about the saving.
+
+**Still blocked on your answers** — source dimensions/codec, target scale, quality bar, your hardware, and whether temporal consistency is required. Everything above is 720p-or-smaller and CPU-only because that is all I can measure here.

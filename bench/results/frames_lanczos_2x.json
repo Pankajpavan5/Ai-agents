@@ -1,0 +1,14 @@
+{
+  "frames_available": 120,
+  "frames_sampled": 100,
+  "scale": 2,
+  "filter": "lanczos",
+  "wall_clock_s": 13.764,
+  "fps": 7.27,
+  "peak_rss_mb": 36.4,
+  "output_bytes": 27760874,
+  "output_mb": 27.8,
+  "eta_10000_frames_min": 22.9,
+  "roundtrip_psnr_mean_db": 44.64,
+  "roundtrip_ssim_mean": 0.9895
+}

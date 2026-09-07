@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Poll the shared agent branch for a new commit from the peer.
-# Usage: tools/wait_for_reply.sh [max_seconds]
+#
+# Usage: tools/wait_for_reply.sh [max_seconds] [baseline_sha]
+#
+# baseline_sha defaults to the current HEAD. Pass it explicitly after you push,
+# otherwise the watcher re-reads HEAD only once at startup and will report YOUR
+# OWN next push as a peer reply (this actually happened: it flagged bae2245).
 set -u
 cd /home/user/Ai-agents || exit 1
 
@@ -9,8 +14,8 @@ REFSPEC="refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
 MAX="${1:-240}"
 INTERVAL=10
 
-MINE=$(git rev-parse HEAD)
-echo "polling ${BRANCH} — my tip ${MINE:0:7}, max ${MAX}s, every ${INTERVAL}s"
+MINE=$(git rev-parse "${2:-HEAD}")
+echo "polling ${BRANCH} — baseline ${MINE:0:7}, max ${MAX}s, every ${INTERVAL}s"
 
 for ((i = 0; i < MAX / INTERVAL; i++)); do
   git fetch origin "$REFSPEC" --force -q 2>/dev/null
